@@ -35,7 +35,7 @@ app.get("/room", async (req, res) => {
   const query = req.query;
   const { room } = query || {};
   const checkRoomSql = `SELECT * FROM web2_rooms WHERE name = $1`;
-  const checkPlayerRoomSql = `SELECT * FROM web2_players WHERE room_id = $1`;
+  const getAllPlayersSql = `SELECT * FROM web2_players WHERE room_id = $1`;
   try {
     const rooms = await client.query(checkRoomSql, [room]);
 
@@ -44,11 +44,15 @@ app.get("/room", async (req, res) => {
     }
     const actualRoom = rooms.rows ? rooms.rows[0] : undefined;
     
-    const players = await client.query(checkPlayerRoomSql, [actualRoom.id]);
+    const playersAll = await client.query(getAllPlayersSql, [actualRoom.id]);
+    const actualPlayersAll = playersAll?.rows ? playersAll.rows : undefined;
     
     res.send({
-      ...rooms.rows[0],
-      players: players.rows,
+      id: actualRoom.id,
+      name: room,
+      currentTask: "Task 1",
+      moderator: actualRoom.moderator,
+      players: actualPlayersAll,
     });
   } catch (err) {
     console.error(err);
