@@ -2,118 +2,9 @@ const express = require("express");
 const path = require("path");
 const cors = require("cors");
 // const routes = require("./views/routes");
-
 const port = process.env.PORT || 5006;
-
 const app = express();
-
-// PÁGINAS DE EXEMPLO
-app.use(express.static(path.join(__dirname, "public")));
-app.set("views", path.join(__dirname, "views"));
-app.set("view engine", "ejs");
-
-// CORS E O USO DE JSON
-app.use(express.json());
-app.use(cors());
-
-app.get("/", (req, res) => {
-  res.render("pages/index");
-});
-
-app.post('/create-room', async (req, res) => {
-
-  const query = req.query;
-
-  const {room, moderator} = query || {};
-
-  console.log("create-room");
-  console.log("query:", query);
-  console.log("room:", room);
-  console.log("moderator:", moderator);
-
-  res.send({ "name": room, "currentTask": "Task 1", "moderator": moderator, "players": [ { "name": "Paula", "point": "?" } ] });
-});
-
-app.post('/remove-player', async (req, res) => {
-
-  const query = req.query;
-
-  const {room, moderator} = query || {};
-
-  console.log("remove-player");
-  console.log("query:", query);
-  console.log("room:", room);
-  console.log("moderator:", moderator);
-
-  res.send({ "name": "SalaDaPaula", "currentTask": "Task 1", "moderator": "Paula", "players": [] });
-});
-
-app.post('/reset-votes', async (req, res) => {
-
-  const query = req.query;
-
-  const {room, moderator} = query || {};
-
-  console.log("reset-votes");
-  console.log("query:", query);
-  console.log("room:", room);
-  console.log("moderator:", moderator);
-
-  res.send({ "name": "SalaDaPaula", "currentTask": "Task 1", "moderator": "Paula", "players": [ { "name": "Paula", "point": "?" } ] });
-});
-
-app.post('/sendvote', async (req, res) => {
-
-  const query = req.query;
-
-  const {room, moderator} = query || {};
-
-  console.log("sendvote");
-  console.log("query:", query);
-  console.log("room:", room);
-  console.log("moderator:", moderator);
-
-  res.send({ "name": "SalaDaPaula", "currentTask": "Task 1", "moderator": "Paula", "players": [ { "name": "Paula", "point": "3" } ] });
-});
-
-app.post('/join-room', async (req, res) => {
-
-  const query = req.query;
-
-  const {room, moderator} = query || {};
-
-  console.log("join-room");
-  console.log("query:", query);
-  console.log("room:", room);
-  console.log("moderator:", moderator);
-
-  res.send({ "name": "SalaDaPaula", "currentTask": "Task 1", "moderator": "Paula", "players": [ { "name": "Paula", "point": "?" } ] });
-});
-
-// RETORNO DE ERRO (DEFAULT)
-app.use((err, req, res, next) => {
-  res.status(err?.statusCode || 500).send({
-    status: "error",
-    message: err?.message || "Erro desconhecido", 
-  });
-});
-
-// LEVANTANDO O SERVIDOR
-const server = app.listen(port, () => {
-  console.log(`Listening on ${port}`);
-});
-
-process.on("SIGTERM", async () => {
-  console.log("SIGTERM signal received: gracefully shutting down");
-  if (server) {
-    server.close(() => {
-      console.log("HTTP server closed");
-    });
-  }
-});
-
 const { Client } = require("pg");
-
 // CONECTANDO AO BANCO DE DADOS
 const client = new Client({
   connectionString:
@@ -122,9 +13,7 @@ const client = new Client({
     rejectUnauthorized: false,
   },
 });
-
 client.connect();
-
 client.query(
   "SELECT table_schema,table_name FROM information_schema.tables;",
   (err, res) => {
@@ -132,6 +21,120 @@ client.query(
     for (let row of res.rows) {
       console.log(JSON.stringify(row));
     }
-    client.end();
   }
 );
+// PÁGINAS DE EXEMPLO
+app.use(express.static(path.join(__dirname, "public")));
+app.set("views", path.join(__dirname, "views"));
+app.set("view engine", "ejs");
+// CORS E O USO DE JSON
+app.use(express.json());
+app.use(cors());
+app.get("/", (req, res) => {
+  res.render("pages/index");
+});
+app.post("/create-room", async (req, res) => {
+  const query = req.query;
+  const { room, moderator } = query || {};
+  const checkPlayerSql = `SELECT * FROM player WHERE name = $1 AND room_id = $2`;
+  const checkRoomSql = `SELECT * FROM rooms WHERE name = $1`;
+  const insertPlayerSql = `INSERT INTO player (name, room_id, point) VALUES ($1, $2, $3)`;
+  const sql = `INSERT INTO rooms (name, moderator, current_task) VALUES ($1, $2, $3)`;
+  const values = [room, moderator, "Task 1"];
+  try {
+    const rooms = await client.query(sql, [room]);
+    if (rooms.rows.length > 0) {
+      throw new Error("Room already exists");
+    }
+    const result = await client.query(sql, values);
+    const player = await client.query(sql, [moderator]);
+    // coninuar logica
+    if (player.rows.length > 0) {
+      throw new Error("Room already exists");
+    }
+    res.send({
+      name: room,
+      currentTask: "Task 1",
+      moderator: moderator,
+      players: [{ name: "Paula", point: "?" }],
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error creating room");
+  }
+});
+app.post("/remove-player", async (req, res) => {
+  const query = req.query;
+  const { room, moderator } = query || {};
+  console.log("remove-player");
+  console.log("query:", query);
+  console.log("room:", room);
+  console.log("moderator:", moderator);
+  res.send({
+    name: "SalaDaPaula",
+    currentTask: "Task 1",
+    moderator: "Paula",
+    players: [],
+  });
+});
+app.post("/reset-votes", async (req, res) => {
+  const query = req.query;
+  const { room, moderator } = query || {};
+  console.log("reset-votes");
+  console.log("query:", query);
+  console.log("room:", room);
+  console.log("moderator:", moderator);
+  res.send({
+    name: "SalaDaPaula",
+    currentTask: "Task 1",
+    moderator: "Paula",
+    players: [{ name: "Paula", point: "?" }],
+  });
+});
+app.post("/sendvote", async (req, res) => {
+  const query = req.query;
+  const { room, moderator } = query || {};
+  console.log("sendvote");
+  console.log("query:", query);
+  console.log("room:", room);
+  console.log("moderator:", moderator);
+  res.send({
+    name: "SalaDaPaula",
+    currentTask: "Task 1",
+    moderator: "Paula",
+    players: [{ name: "Paula", point: "3" }],
+  });
+});
+app.post("/join-room", async (req, res) => {
+  const query = req.query;
+  const { room, moderator } = query || {};
+  console.log("join-room");
+  console.log("query:", query);
+  console.log("room:", room);
+  console.log("moderator:", moderator);
+  res.send({
+    name: "SalaDaPaula",
+    currentTask: "Task 1",
+    moderator: "Paula",
+    players: [{ name: "Paula", point: "?" }],
+  });
+});
+// RETORNO DE ERRO (DEFAULT)
+app.use((err, req, res, next) => {
+  res.status(err?.statusCode || 500).send({
+    status: "error",
+    message: err?.message || "Erro desconhecido",
+  });
+});
+// LEVANTANDO O SERVIDOR
+const server = app.listen(port, () => {
+  console.log(`Listening on ${port}`);
+});
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM signal received: gracefully shutting down");
+  if (server) {
+    server.close(() => {
+      console.log("HTTP server closed");
+    });
+  }
+});
