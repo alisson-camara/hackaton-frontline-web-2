@@ -36,27 +36,29 @@ app.get("/", (req, res) => {
 app.post("/create-room", async (req, res) => {
   const query = req.query;
   const { room, moderator } = query || {};
-  const checkPlayerSql = `SELECT * FROM player WHERE name = $1 AND room_id = $2`;
-  const checkRoomSql = `SELECT * FROM rooms WHERE name = $1`;
-  const insertPlayerSql = `INSERT INTO player (name, room_id, point) VALUES ($1, $2, $3)`;
-  const sql = `INSERT INTO rooms (name, moderator, current_task) VALUES ($1, $2, $3)`;
+  const checkPlayerSql = `SELECT * FROM web2_players WHERE name = $1`;
+  const checkRoomSql = `SELECT * FROM web2_rooms WHERE name = $1`;
+  const insertPlayerSql = `INSERT INTO web2_players (name, room_id, point) VALUES ($1, $2, $3)`;
+  const sql = `INSERT INTO web2_rooms (name, moderator, current_task) VALUES ($1, $2, $3)`;
   const values = [room, moderator, "Task 1"];
   try {
-    const rooms = await client.query(sql, [room]);
+    const rooms = await client.query(checkRoomSql, [room]);
     if (rooms.rows.length > 0) {
       throw new Error("Room already exists");
     }
-    const result = await client.query(sql, values);
-    const player = await client.query(sql, [moderator]);
-    // coninuar logica
-    if (player.rows.length > 0) {
-      throw new Error("Room already exists");
+    const newRoom = await client.query(sql, values);
+    console.log("newRoom ", newRoom);
+    const player = await client.query(checkPlayerSql, [moderator]);
+    if (!player[0]) {
+      await client.query(insertPlayerSql, [moderator, newRoom.rows[0].id, "?"]);
     }
+
+    // VERIFICAR ID
     res.send({
+      id: newRoom.rows[0].id,
       name: room,
       currentTask: "Task 1",
       moderator: moderator,
-      players: [{ name: "Paula", point: "?" }],
     });
   } catch (err) {
     console.error(err);
