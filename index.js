@@ -1,5 +1,7 @@
 const express = require("express");
 const path = require("path");
+const cors = require("cors");
+// const routes = require("./views/routes");
 
 const port = process.env.PORT || 5006;
 
@@ -9,9 +11,39 @@ app.use(express.static(path.join(__dirname, "public")));
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
 
+
+app.use(express.json());
+app.use(cors());
+
 app.get("/", (req, res) => {
   res.render("pages/index");
 });
+
+app.post('/create-room', async (req, res) => {
+
+  const query = req.query;
+  
+  console.log("req:", req);
+  console.log("query:", query);
+
+  res.send({ "name": "SalaDaPaula", "currentTask": "Task 1", "moderator": "Paula", "players": [ { "name": "Paula", "point": "?" } ] });
+});
+
+
+
+// app.get('/create-room', async (req, res) => {
+
+//   res.send({ "name": "SalaDaPaula", "currentTask": "Task 1", "moderator": "Paula", "players": [ { "name": "Paula", "point": "?" } ] });
+// });
+
+app.use((err, req, resp) =>   {
+  return resp.status(err?.statusCode || 500).json({
+    status: "error",
+    message: err?.message || "Erro desconhecido", 
+  });
+});
+
+// app.use("", routes);
 
 const server = app.listen(port, () => {
   console.log(`Listening on ${port}`);
