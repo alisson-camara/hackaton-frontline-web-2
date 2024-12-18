@@ -24,24 +24,41 @@ client.query(
   }
 );
 // PÁGINAS DE EXEMPLO
+const bodyParser = require("body-parser");
+app.use(bodyParser.text());
 app.use(express.static(path.join(__dirname, "public")));
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
 // CORS E O USO DE JSON
 // app.use(express.json());
 app.use(cors());
-app.get("/", (req, res) => {
-  res.render("pages/index");
+app.get("/room", async (req, res) => {
+  const query = req.query;
+  const { room } = query || {};
+  const checkRoomSql = `SELECT * FROM web2_rooms WHERE name = $1`;
+  const checkPlayerRoomSql = `SELECT * FROM web2_players WHERE room_id = $1`;
+  try {
+    const rooms = await client.query(checkRoomSql, [room]);
+    const players = await client.query(checkPlayerRoomSql, [rooms.rows[0].id]);
+    if (rooms.rows.length < 0) {
+      throw new Error("Room not exists");
+    }
+    res.send({
+      ...rooms.rows[0],
+      players: players.rows,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error creating room");
+  }
 });
 app.post("/create-room", async (req, res) => {
   const query = req.query;
   const { room, moderator } = query || {};
-
   const checkPlayerSql = `SELECT * FROM web2_players WHERE name = $1`;
   const checkRoomSql = `SELECT * FROM web2_rooms WHERE name = $1`;
   const insertPlayerSql = `INSERT INTO web2_players (name, room_id, point) VALUES ($1, $2, $3)`;
   const sql = `INSERT INTO web2_rooms (name, moderator, current_task) VALUES ($1, $2, $3)`;
-
   const values = [room, moderator, "Task 1"];
   try {
     const rooms = await client.query(checkRoomSql, [room]);
@@ -51,14 +68,11 @@ app.post("/create-room", async (req, res) => {
     await client.query(sql, values);
     const newRoom = await client.query(checkRoomSql, [room]);
     const actualRoom = newRoom?.rows ? newRoom.rows[0] : undefined;
-
     const playerRow = await client.query(checkPlayerSql, [moderator]);
     const actualPlayer = playerRow?.rows ? playerRow.rows[0] : undefined;
-
     if (!actualPlayer) {
       await client.query(insertPlayerSql, [moderator, actualRoom.id, "?"]);
     }
-
     // VERIFICAR ID
     res.send({
       id: actualRoom.id,
@@ -74,36 +88,28 @@ app.post("/create-room", async (req, res) => {
 app.post("/remove-player", async (req, res) => {
   const query = req.query;
   const { room, player } = query || {};
-
   const checkPlayerSql = `SELECT * FROM web2_players WHERE name = $1 AND room_id = $2`;
   const checkRoomSql = `SELECT * FROM web2_rooms WHERE name = $1`;
   const deletePlayerSql = `DELETE FROM web2_players WHERE id = $1`;
   const getAllPlayersSql = `SELECT * FROM web2_players WHERE room_id = $1`;
-
   // TO-DO: TEST
   try {
     const rooms = await client.query(checkRoomSql, [room]);
     if (rooms.rows.length < 0) {
       throw new Error("Room not exists");
     }
-
     const actualRoom = rooms.rows[0];
-
     const playerRows = await client.query(checkPlayerSql, [
       player,
       actualRoom.id,
     ]);
     const actualPlayer = playerRows?.rows ? playerRows.rows[0] : undefined;
-
     if (!actualPlayer) {
       throw new Error("Player not exists");
     }
-
     await client.query(deletePlayerSql, [actualPlayer.id]);
-
     const playersAll = await client.query(getAllPlayersSql, [actualRoom.id]);
     const actualPlayersAll = playersAll?.rows ? playersAll.rows : undefined;
-
     // VERIFICAR ID
     res.send({
       id: actualRoom.id,
@@ -119,26 +125,19 @@ app.post("/remove-player", async (req, res) => {
 });
 app.post("/reset-votes", async (req, res) => {
   const query = req.query;
-
   const { room, player } = query || {};
-
   const checkRoomSql = `SELECT * FROM web2_rooms WHERE name = $1`;
   const updatePlayerSQL = `UPDATE web2_players SET point=? WHERE player.name=${player} AND player.room_id=$1`;
-
   try {
     const rooms = await client.query(checkRoomSql, [room]);
     if (rooms.rows.length < 0) {
       throw new Error("Room not exists");
     }
-
     const actualRoom = rooms.rows ? rooms.rows[0] : undefined;
-
     const values = [actualRoom.id];
     await client.query(updatePlayerSQL, values);
-
     const playersAll = await client.query(getAllPlayersSql, [actualRoom.id]);
     const actualPlayersAll = playersAll?.rows ? playersAll.rows : undefined;
-
     // VERIFICAR ID
     res.send({
       id: actualRoom.id,
@@ -154,28 +153,21 @@ app.post("/reset-votes", async (req, res) => {
 app.post("/sendvote", async (req, res) => {
   const query = req.query;
   const body = req.body;
-
   console.log("body", body);
   const { room, player } = query || {};
   console.log(body);
-
   const checkRoomSql = `SELECT * FROM web2_rooms WHERE name = $1`;
   const updatePlayerSQL = `UPDATE web2_players SET point=$1 WHERE name=${player} AND room_id=$2`;
-
   try {
     const rooms = await client.query(checkRoomSql, [room]);
     if (rooms.rows.length < 0) {
       throw new Error("Room not exists");
     }
-
     const actualRoom = rooms.rows ? rooms.rows[0] : undefined;
-
     const values = [body, actualRoom.id];
     await client.query(updatePlayerSQL, values);
-
     const playersAll = await client.query(getAllPlayersSql, [actualRoom.id]);
     const actualPlayersAll = playersAll?.rows ? playersAll.rows : undefined;
-
     // VERIFICAR ID
     res.send({
       id: actualRoom.id,
@@ -192,12 +184,10 @@ app.post("/sendvote", async (req, res) => {
 app.post("/join-room", async (req, res) => {
   const query = req.query;
   const { room, player } = query || {};
-
   const checkPlayerSql = `SELECT * FROM web2_players WHERE name = $1 AND room_id = $2`;
   const checkRoomSql = `SELECT * FROM web2_rooms WHERE name = $1`;
   const insertPlayerSql = `INSERT INTO web2_players (name, room_id, point) VALUES ($1, $2, $3)`;
   const getAllPlayersSql = `SELECT * FROM web2_players WHERE room_id = $1`;
-
   // TO-DO: TEST
   try {
     const rooms = await client.query(checkRoomSql, [room]);
@@ -206,7 +196,6 @@ app.post("/join-room", async (req, res) => {
       throw new Error("Room not exists");
     }
     const actualRoom = rooms.rows ? rooms.rows[0] : undefined;
-
     const playerRow = await client.query(checkPlayerSql, [
       player,
       actualRoom.id,
@@ -214,14 +203,11 @@ app.post("/join-room", async (req, res) => {
     const actualPlayer = playerRow?.rows ? playerRow.rows[0] : undefined;
     console.log("actualPlayer", actualPlayer);
     console.log("players", playerRow.rows);
-
     if (!actualPlayer) {
       await client.query(insertPlayerSql, [player, actualRoom.id, "?"]);
     }
-
     const playersAll = await client.query(getAllPlayersSql, [actualRoom.id]);
     const actualPlayersAll = playersAll?.rows ? playersAll.rows : undefined;
-
     // VERIFICAR ID
     res.send({
       id: actualRoom.id,
@@ -235,7 +221,6 @@ app.post("/join-room", async (req, res) => {
     res.status(500).send("Error creating room");
   }
 });
-
 // RETORNO DE ERRO (DEFAULT)
 app.use((err, req, res, next) => {
   res.status(err?.statusCode || 500).send({
