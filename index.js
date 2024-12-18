@@ -158,7 +158,8 @@ app.post("/sendvote", async (req, res) => {
   const body = req.body;
   const { room, player } = query || {};
   const checkRoomSql = `SELECT * FROM web2_rooms WHERE name = $1`;
-  const updatePlayerSQL = `UPDATE web2_players SET point=$1 WHERE name=${player} AND room_id=$2`;
+  const updatePlayerSQL = `UPDATE web2_players SET point=$1 WHERE name = $2 AND room_id = $3`;
+  const getAllPlayersSql = `SELECT * FROM web2_players WHERE room_id = $1`;
 
   try {
     const rooms = await client.query(checkRoomSql, [room]);
@@ -166,7 +167,7 @@ app.post("/sendvote", async (req, res) => {
       throw new Error("Room not exists");
     }
     const actualRoom = rooms.rows ? rooms.rows[0] : undefined;
-    const values = [body, actualRoom.id];
+    const values = [body, player, actualRoom.id];
     await client.query(updatePlayerSQL, values);
     const playersAll = await client.query(getAllPlayersSql, [actualRoom.id]);
     const actualPlayersAll = playersAll?.rows ? playersAll.rows : undefined;
