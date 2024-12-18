@@ -38,10 +38,14 @@ app.get("/room", async (req, res) => {
   const checkPlayerRoomSql = `SELECT * FROM web2_players WHERE room_id = $1`;
   try {
     const rooms = await client.query(checkRoomSql, [room]);
-    const players = await client.query(checkPlayerRoomSql, [rooms.rows[0].id]);
-    if (rooms.rows.length < 0) {
+
+    if (rooms.rows.length <= 0) {
       throw new Error("Room not exists");
     }
+    const actualRoom = rooms.rows ? rooms.rows[0] : undefined;
+    
+    const players = await client.query(checkPlayerRoomSql, [actualRoom.id]);
+    
     res.send({
       ...rooms.rows[0],
       players: players.rows,
