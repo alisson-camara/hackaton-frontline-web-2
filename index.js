@@ -36,20 +36,24 @@ app.get("/", (req, res) => {
 app.post("/create-room", async (req, res) => {
   const query = req.query;
   const { room, moderator } = query || {};
+
   const checkPlayerSql = `SELECT * FROM web2_players WHERE name = $1`;
   const checkRoomSql = `SELECT * FROM web2_rooms WHERE name = $1`;
   const insertPlayerSql = `INSERT INTO web2_players (name, room_id, point) VALUES ($1, $2, $3)`;
   const sql = `INSERT INTO web2_rooms (name, moderator, current_task) VALUES ($1, $2, $3)`;
+
   const values = [room, moderator, "Task 1"];
   try {
     const rooms = await client.query(checkRoomSql, [room]);
     if (rooms.rows.length > 0) {
       throw new Error("Room already exists");
     }
-    const newRoom = await client.query(sql, values);
-    console.log("newRoom ", newRoom);
+    await client.query(sql, values);
+    const newRoom = await client.query(checkRoomSql, [room]);
+
     const player = await client.query(checkPlayerSql, [moderator]);
-    if (!player[0]) {
+
+    if (!player.rows && !player.rows[0]) {
       await client.query(insertPlayerSql, [moderator, newRoom.rows[0].id, "?"]);
     }
 
